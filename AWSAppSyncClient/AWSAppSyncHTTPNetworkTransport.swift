@@ -20,7 +20,7 @@ public class AWSAppSyncHTTPNetworkTransport: AWSNetworkTransport {
     let authType: AWSAppSyncAuthType
     var retryStrategy: AWSAppSyncRetryStrategy
     var activeTimers: [String: DispatchSourceTimer] = [:]
-    
+
     /// Creates a network transport with the specified server URL and session configuration.
     ///
     /// - Parameters:
@@ -176,9 +176,9 @@ public class AWSAppSyncHTTPNetworkTransport: AWSNetworkTransport {
                                                          retryHandler: retryHandler,
                                                          networkTransportOperation: networkTransportOperation,
                                                          completionHandler: completionHandler)
-                                self?.activeTimers.removeValue(forKey: taskUUID)
+                                self?.removeTimer(for: taskUUID)
                             }
-                            self?.activeTimers[taskUUID] = timer
+                            self?.saveTimer(timer, for: taskUUID)
                         } else {
                             completionHandler(nil, error)
                         }
@@ -190,6 +190,24 @@ public class AWSAppSyncHTTPNetworkTransport: AWSNetworkTransport {
             }
             
         })
+    }
+
+    private let activeTimersLock = NSObject()
+
+    private func saveTimer(_ timer: DispatchSourceTimer?, for taskUUID: String) {
+        objc_sync_enter(activeTimersLock)
+        defer { objc_sync_exit(activeTimersLock) }
+
+        if let timer = timer {
+            activeTimers[taskUUID] = timer
+        }
+    }
+
+    private func removeTimer(for taskUUID: String) {
+        objc_sync_enter(activeTimersLock)
+        defer { objc_sync_exit(activeTimersLock) }
+
+        activeTimers.removeValue(forKey: taskUUID)
     }
     
     /// Invoke HTTP network request for all GraphQL operations
